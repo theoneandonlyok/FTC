@@ -1,0 +1,181 @@
+package org.firstinspires.ftc.teamcode;
+
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+
+@TeleOp
+public class VelocityV1 extends LinearOpMode {
+    DcMotor in = null;
+    DcMotor tran = null;
+    DcMotorEx out1 = null;
+    DcMotorEx out2 = null;
+    DcMotor fl, fr, br, bl;
+    
+    // 2000 is a rough estimate; adjust this if your max RPM is different
+    double powerConvert = 2000; 
+    double targetVelocity = 0.0;
+    
+    // Allowable overshoot. If velocity is higher than Target + 150, intake stops.
+    double velocityBuffer = 150.0; 
+
+    @Override
+    public void runOpMode() {
+
+        // --- Hardware Mapping ---
+        fl = hardwareMap.get(DcMotor.class, "fl");
+        fr = hardwareMap.get(DcMotor.class, "fr");
+        bl = hardwareMap.get(DcMotor.class, "bl");
+        br = hardwareMap.get(DcMotor.class, "br");
+
+        in = hardwareMap.get(DcMotor.class, "in");
+        tran = hardwareMap.get(DcMotor.class, "tran");
+
+        out1 = hardwareMap.get(DcMotorEx.class, "out1");
+        out2 = hardwareMap.get(DcMotorEx.class, "out2");
+
+        // --- Motor Setup ---
+        fl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        fr.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        br.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        bl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
+        br.setDirection(DcMotorSimple.Direction.REVERSE);
+        fr.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        // Shooter Setup
+        out1.setDirection(DcMotorSimple.Direction.REVERSE);
+        
+        // Both motors must use RUN_USING_ENCODER for velocity control
+        out1.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        out2.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        telemetry.addData("Status", "Initialized");
+        telemetry.update();
+
+        double inPower = 0.0;
+        double tranPower = 0.0; // Separate power for the transfer motor
+        double motorPowerScale = 1.0;
+        boolean lb_prev = false, rb_prev = false;
+
+        waitForStart();
+
+        while (opModeIsActive()) {
+            
+            // --- 1. DRIVETRAIN LOGIC ---
+            if(gamepad1.rightStickButtonWasPressed()){
+                motorPowerScale = 0.5;
+            } else if (gamepad1.rightStickButtonWasReleased()){
+                motorPowerScale = 1.0;
+            }
+
+            double drive = -gamepad2.left_stick_y; 
+            double strafe = gamepad2.left_stick_x;
+            double turn = -gamepad2.right_stick_x * 0.5;
+
+            double flPower = (drive + strafe + turn) * motorPowerScale;
+            double blPower = (drive - strafe + turn) * motorPowerScale;
+            double frPower = (drive - strafe - turn) * motorPowerScale;
+            double brPower = (drive + strafe - turn) * motorPowerScale;
+
+            fr.setPower(frPower);
+            fl.setPower(flPower);
+            br.setPower(brPower);
+            bl.setPower(blPower);
+
+            // Get current velocity once for consistent logic below
+            double currentVel = out1.getVelocity();
+
+
+            // --- 2. SHOOTER VELOCITY CONTROL ---
+            powerConvert = 1500;
+            targetVelocity = 0.56 * powerConvert;
+            if (gamepad1.dpad_down) {
+                // JAM CLEAR: Set both motors to a strong reverse velocity
+                targetVelocity = -3000;
+            } 
+            else if (gamepad1.right_trigger > 0.05) {
+                powerConvert = 2300;
+                targetVelocity = 0.56 * powerConvert;
+            } else if (gamepad1.b) {
+                powerConvert = 2600;
+            } else if (gamepad1.y) {
+                targetVelocity = 0;
+            } else if (gamepad1.dpad_up) {
+                 targetVelocity = -500; 
+            }
+            // Apply Velocity
+            out1.setVelocity(targetVelocity);
+            out2.setVelocity(targetVelocity);
+
+
+            // --- 3. INTAKE & TRANSFER CONTROL ---
+            
+            if (gamepad1.dpad_down || gamepad1.dpad_up) {
+                // JAM/REVERSE MODE
+                inPower = -1.0;
+                tranPower = -1.0;
+            
+            } else if (gamepad1.left_trigger > 0.05 || gamepad2.left_trigger > 0.05) {
+                // MANUAL INTAKE (Pick-up mode)
+                // Intake runs forward, Transfer idles (as requested)
+                inPower = 1.0;
+                tranPower = 0.0; 
+            
+            } else if (gamepad1.a && targetVelocity > 100) {
+                // ** A BUTTON FEED LOGIC (Shooting Mode) **
+                
+                // Conditions to feed:
+                boolean isFastEnough = currentVel > (targetVelocity * 0.95);
+                boolean isNotTooFast = currentVel < (targetVelocity + velocityBuffer);
+
+                if (isFastEnough && isNotTooFast) { 
+                    inPower = 0.7;    // Run intake slightly for feeding
+                    tranPower = 1.0;  // Run transfer (ONLY when shooter is ready)
+                    telemetry.addLine("SHOOTER READY - FIRING");
+                } else {
+                    inPower = 0.0;
+                    tranPower = 0.0;
+                    if (!isFastEnough) telemetry.addLine("Spooling Up...");
+                    if (!isNotTooFast) telemetry.addLine("Overspeeding - Waiting...");
+                }
+
+            } else if (gamepad1.x) {
+                // STOP ALL
+                inPower = 0.0;
+                tranPower = 0.0;
+                
+            } else {
+                // IDLE (Default state)
+                inPower = 0.0;
+                tranPower = 0.0;
+                
+                // Bumper fine adjustments (only affects intake)
+                if(gamepad1.left_bumper && !lb_prev){
+                    tranPower -= 0.5;
+                } else if(gamepad1.right_bumper && !rb_prev){
+                    tranPower += 0;
+                }
+            }
+
+            // Track bumper states
+            lb_prev = gamepad1.left_bumper;
+            rb_prev = gamepad1.right_bumper;
+
+            // Apply Powers
+            in.setPower(inPower);
+            tran.setPower(tranPower); // Apply separate transfer power
+
+            // --- 4. TELEMETRY ---
+            telemetry.addData("Status", "Running");
+            telemetry.addData("Target Vel", targetVelocity);
+            telemetry.addData("Current Vel", currentVel);
+            telemetry.addData("Intake Pwr", inPower);
+            telemetry.addData("Transfer Pwr", tranPower);
+            
+            telemetry.update();
+        }
+    }
+}
