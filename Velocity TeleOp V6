@@ -1,0 +1,110 @@
+package org.firstinspires.ftc.teamcode;
+
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+
+@TeleOp
+public class VelocityTeleOpV6 extends LinearOpMode {
+    DcMotor in, tran;
+    DcMotorEx out1, out2;
+    DcMotor fl, fr, br, bl;
+    
+    double targetVelocity = 0.0;
+    double velocityBuffer = 150.0; 
+
+    @Override
+    public void runOpMode() {
+        // --- Hardware Mapping ---
+        fl = hardwareMap.get(DcMotor.class, "fl");
+        fr = hardwareMap.get(DcMotor.class, "fr");
+        bl = hardwareMap.get(DcMotor.class, "bl");
+        br = hardwareMap.get(DcMotor.class, "br");
+        in = hardwareMap.get(DcMotor.class, "in");
+        tran = hardwareMap.get(DcMotor.class, "tran");
+        out1 = hardwareMap.get(DcMotorEx.class, "out1");
+        out2 = hardwareMap.get(DcMotorEx.class, "out2");
+
+        // --- Motor Setup ---
+        fl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        fr.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        bl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        br.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
+        br.setDirection(DcMotorSimple.Direction.REVERSE);
+        fr.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        out1.setDirection(DcMotorSimple.Direction.REVERSE);
+        out1.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        out2.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        double motorPowerScale = 1.0;
+        waitForStart();
+
+        while (opModeIsActive()) {
+            
+            // --- 1. DRIVETRAIN LOGIC ---
+            motorPowerScale = gamepad2.right_stick_button ? 0.5 : 1.0;
+
+            double drive = -gamepad1.left_stick_y; 
+            double strafe = -gamepad1.left_stick_x;
+            double turn = -gamepad1.right_stick_x * 0.65;
+
+            fl.setPower((drive + strafe + turn) * motorPowerScale);
+            bl.setPower((drive - strafe + turn) * motorPowerScale);
+            fr.setPower((drive - strafe - turn) * motorPowerScale);
+            br.setPower((drive + strafe - turn) * motorPowerScale);
+
+            // --- 2. SHOOTER VELOCITY CONTROL ---
+            if (gamepad2.right_trigger > 0.05) {
+                targetVelocity = 0.56 * 2250;
+            } else if (gamepad2.b) {
+                targetVelocity = 0.56 * 2900;
+            } else if (gamepad2.y) {
+                targetVelocity = 0;
+            } else {
+                targetVelocity = 0.56 * 1500; // Default Idle
+            }
+
+            out1.setVelocity(targetVelocity);
+            out2.setVelocity(targetVelocity);
+            
+            double currentVel = out1.getVelocity();
+
+            // --- 3. INTAKE & TRANSFER LOGIC ---
+            double inPower = 0.0;
+            double tranPower = 0.0;
+
+            // Outtake/Reverse
+            if (gamepad1.left_bumper || gamepad2.left_bumper) {
+                inPower = -1.0;
+                tranPower = -1.0;
+            } 
+            // Fire (Only if spun up)
+            else if (gamepad2.a && targetVelocity > 500) {
+                boolean isFastEnough = currentVel > (targetVelocity * 0.95);
+                boolean isNotOvershooting = currentVel < (targetVelocity + velocityBuffer);
+
+                if (isFastEnough && isNotOvershooting) {
+                    inPower = 0.7;
+                    tranPower = 1.0;
+                }
+            }
+            // Manual Intake
+            else if (gamepad1.left_trigger > 0.05 || gamepad2.left_trigger > 0.05) {
+                inPower = 1.0;
+                tranPower = 0.0;
+            }
+
+            in.setPower(inPower);
+            tran.setPower(tranPower);
+
+            // --- 4. TELEMETRY ---
+            telemetry.addData("Target", targetVelocity);
+            telemetry.addData("Current", (int)currentVel);
+            telemetry.update();
+        }
+    }
+}
