@@ -7,13 +7,10 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
 @TeleOp
 
-public class ItkanInnovatorsTeleOpTEST2 extends LinearOpMode {
+public class BaseTeleOp extends LinearOpMode {
     DcMotor fl, fr, br, bl;
-    Servo claw, wrist;
 
     public void runOpMode() {
-        //START HERE
-        //Map Motors
         fl = hardwareMap.get(DcMotor.class, "fl");
         fr = hardwareMap.get(DcMotor.class, "fr");
         bl = hardwareMap.get(DcMotor.class, "bl");
@@ -24,12 +21,9 @@ public class ItkanInnovatorsTeleOpTEST2 extends LinearOpMode {
         br.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         bl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        //stuff skibidi needs to explain
         fl.setDirection(DcMotor.Direction.REVERSE);
         bl.setDirection(DcMotor.Direction.REVERSE);
-        //Break mode
-        // int armUpPosition = 250;
-        // int armDownPosition = 0;
+        
         waitForStart();
         while (opModeIsActive()) {
             double motorPowerScale = 1.0;
