@@ -20,8 +20,8 @@ public class RedAuton extends LinearOpMode {
     private VisionPortal visionPortal;
     private int ticks;
     private double gatePosition;
-    private double opened_gate = 1;
-    private double closed_gate = 0;
+    private double opened_gate = 0.75;
+    private double closed_gate = 0.25;
 
     @Override
     public void runOpMode() {
@@ -113,7 +113,7 @@ public class RedAuton extends LinearOpMode {
         br.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         setMotorPower(power);
         waitForMotors();
-    }2
+    }
 
     private void intake() {
         gate.setPosition(0.25);
