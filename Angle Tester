@@ -1,0 +1,98 @@
+package org.firstinspires.ftc.teamcode;
+
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
+
+import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
+import org.firstinspires.ftc.vision.VisionPortal;
+
+@Autonomous
+public class AngleTester extends LinearOpMode {
+    private DcMotorEx outtakeOne, outtakeTwo;
+    private DcMotor fl, fr, br, bl;
+    private DcMotor intake;
+    private DcMotor tran;
+    private Servo gate;
+    private AprilTagProcessor aprilTag;
+    private VisionPortal visionPortal;
+    private int ticks;
+    private double gatePosition;
+    private double opened_gate = 1;
+    private double closed_gate = 0;
+
+    @Override
+    public void runOpMode() {
+        // Initialize hardware
+        fl = hardwareMap.get(DcMotor.class, "fl");
+        fr = hardwareMap.get(DcMotor.class, "fr");
+        bl = hardwareMap.get(DcMotor.class, "bl");
+        br = hardwareMap.get(DcMotor.class, "br");
+        outtakeOne = hardwareMap.get(DcMotorEx.class, "out1");
+        outtakeTwo = hardwareMap.get(DcMotorEx.class, "out2");
+        intake = hardwareMap.get(DcMotor.class, "in");
+        tran = hardwareMap.get(DcMotor.class, "tran");
+
+
+        // Set motor directions
+        fl.setDirection(DcMotor.Direction.FORWARD);
+        bl.setDirection(DcMotor.Direction.FORWARD);
+        fr.setDirection(DcMotor.Direction.REVERSE);
+        br.setDirection(DcMotor.Direction.REVERSE);
+        outtakeOne.setDirection(DcMotorEx.Direction.FORWARD);
+        outtakeTwo.setDirection(DcMotor.Direction.REVERSE);
+
+        // Reset and configure arm encoders
+        outtakeOne.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        outtakeTwo.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        outtakeOne.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        outtakeTwo.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+
+        // Set initial servo position
+        telemetry.addData("Status", "Initialized");
+        telemetry.update();
+
+        waitForStart();
+
+        if (opModeIsActive()) {
+            rotateRight(90,1);
+        }
+    }
+
+
+    private void rotateLeft(int angle, double power) {
+        int ticks;
+        ticks = angle * 400;//WORK ON THIS NUMBER
+
+        fl.setTargetPosition(fl.getCurrentPosition() - ticks);
+        fr.setTargetPosition(fr.getCurrentPosition() + ticks);
+        bl.setTargetPosition(bl.getCurrentPosition() - ticks);
+        br.setTargetPosition(br.getCurrentPosition() + ticks);
+
+        fl.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        fr.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        bl.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        br.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        setMotorPower(power);
+        waitForMotors();
+    }
+
+    private void rotateRight(int angle, double power) {
+        int ticks;
+        ticks = angle * 12;//WORK ON THIS NUMBER
+        fl.setTargetPosition(fl.getCurrentPosition() + ticks);
+        fr.setTargetPosition(fr.getCurrentPosition() - ticks);
+        bl.setTargetPosition(bl.getCurrentPosition() + ticks);
+        br.setTargetPosition(br.getCurrentPosition() - ticks);
+
+        fl.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        fr.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        bl.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        br.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        setMotorPower(power);
+        waitForMotors();
+    }
+}
