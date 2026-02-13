@@ -1,0 +1,172 @@
+package org.firstinspires.ftc.teamcode;
+
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.hardware.limelightvision.Limelight3A;
+import com.qualcomm.hardware.limelightvision.LLResult;
+import com.qualcomm.hardware.limelightvision.LLResultTypes;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.Servo;
+import java.util.List;
+@TeleOp(name = "A TeleOp", group = "Linear Opmode")
+public class TeleOp V7 extends LinearOpMode {
+    // --- Existing Hardware ---
+    DcMotor in, tran;
+    DcMotorEx out1, out2;
+    DcMotor fl, fr, br, bl;
+    Servo gate;
+    Limelight3A limelight;
+
+    // Shooter Variables
+    double targetVelocity = 0.0;
+    double velocityBuffer = 25.0;
+    double open = 1;
+    double closed = 0.8;
+    @Override
+    public void runOpMode() {
+        // --- Hardware Mapping ---
+        fl = hardwareMap.get(DcMotor.class, "fl");
+        fr = hardwareMap.get(DcMotor.class, "fr");
+        bl = hardwareMap.get(DcMotor.class, "bl");
+        br = hardwareMap.get(DcMotor.class, "br");
+        in = hardwareMap.get(DcMotor.class, "in");
+        tran = hardwareMap.get(DcMotor.class, "tran");
+        out1 = hardwareMap.get(DcMotorEx.class, "out1");
+        out2 = hardwareMap.get(DcMotorEx.class, "out2");
+        gate = hardwareMap.get(Servo.class, "gate");
+        limelight = hardwareMap.get(Limelight3A.class, "limelight");   
+        // --- Motor Setup ---
+        fl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        fr.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        bl.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        br.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        
+         out1.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        out2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+
+
+        br.setDirection(DcMotorSimple.Direction.REVERSE);
+        fr.setDirection(DcMotorSimple.Direction.REVERSE);
+        tran.setDirection(DcMotorSimple.Direction.REVERSE);
+
+
+
+        out1.setDirection(DcMotorSimple.Direction.REVERSE);
+        out1.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        out2.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        
+        gate.setPosition(closed);
+         
+         limelight.pipelineSwitch(0);
+         limelight.start();
+        
+        waitForStart();
+
+        while (opModeIsActive()) {
+            
+            // --- 1. DRIVETRAIN LOGIC ---
+            double motorPowerScale = 1.0;
+            double drive = gamepad1.left_stick_y;
+            double strafe = -gamepad1.left_stick_x;
+            double turn = -gamepad1.right_stick_x;
+
+          
+
+             double inPower = 0.0;
+            double tranPower = 0.0;
+
+            if (gamepad1.right_trigger > 0.1 || gamepad2.right_trigger > 0.1) {
+                inPower = 1.0;
+                tranPower = 1.0;
+                gate.setPosition(closed);
+            }
+            else if (gamepad1.left_trigger > 0.05 || gamepad2.left_trigger > 0.05) {
+                inPower = -1.0;
+                tranPower = -1.0;
+            }
+            else{
+                inPower = 0;
+                tranPower = 0;
+            }
+            
+             double tx = 0, ty = 0, ta = 0, id = 0;
+            LLResult result = limelight.getLatestResult();
+            if (result != null){
+             ta = result.getTa();
+            tx = result.getTx();
+            ty = result.getTy();
+            List<LLResultTypes.FiducialResult> fiducialResults = result.getFiducialResults();
+            for (LLResultTypes.FiducialResult fr : fiducialResults) {
+                id = fr.getFiducialId();
+            }
+            }
+            // --- 2. SHOOTER VELOCITY CONTROL ---
+            if (gamepad1.right_bumper) {
+                targetVelocity = 1500;
+            } else if (gamepad1.left_bumper) {
+                targetVelocity = 2200;
+            } else if (gamepad1.y) {
+                targetVelocity = 0;
+            } else {
+                targetVelocity = 1000;
+            }
+
+           
+            double currentVel = Math.abs(out2.getVelocity());
+            if(currentVel < targetVelocity){
+                out1.setPower(-1);
+                out2.setPower(-1);
+            }
+            else{
+                out1.setPower(0);
+                out2.setPower(0);
+            }
+            // --- 3. INTAKE & TRANSFER LOGIC ---
+           
+          if (gamepad1.a && targetVelocity > 0) {
+              boolean aligned = false;
+              if(id == 20 || id == 24){
+                    double tolerance = 1;
+                    double kp = 0.01;
+                    double kf = 0.1;
+                    double error = tx;
+                    if (Math.abs(tx) > tolerance){
+                        turn = kp * error + kf * Math.signum(tx);
+                        turn = - turn;
+                    }
+                    else{
+                        turn = 0;
+                        aligned = true;
+                    }
+              }
+              inPower = 1.0;
+             tranPower = 1.0;
+                boolean isFastEnough = currentVel > (targetVelocity - velocityBuffer);
+                boolean isNotOvershooting = currentVel < (targetVelocity + velocityBuffer);
+
+                if (isFastEnough && isNotOvershooting && aligned) {
+                    gate.setPosition(open);
+                }
+            } 
+            else {
+                gate.setPosition(closed);
+            }
+
+            in.setPower(inPower);
+            tran.setPower(tranPower);
+            fl.setPower((drive + strafe + turn) * motorPowerScale);
+            bl.setPower((drive - strafe + turn) * motorPowerScale);
+            fr.setPower((drive - strafe - turn) * motorPowerScale);
+            br.setPower((drive + strafe - turn) * motorPowerScale);
+
+            // --- 4. TELEMETRY ---
+            telemetry.addData("Target Vel", targetVelocity);
+            telemetry.addData("Current Vel", (int) currentVel);
+            telemetry.addData("Tx: ", tx);
+            telemetry.addData("Ty: ",ty);
+            telemetry.update();
+        }
+    }
+}
