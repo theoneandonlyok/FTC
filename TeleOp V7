@@ -11,7 +11,7 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
 import java.util.List;
 @TeleOp(name = "A TeleOp", group = "Linear Opmode")
-public class TeleOp V7 extends LinearOpMode {
+public class ATeleOp extends LinearOpMode {
     // --- Existing Hardware ---
     DcMotor in, tran;
     DcMotorEx out1, out2;
@@ -22,8 +22,8 @@ public class TeleOp V7 extends LinearOpMode {
     // Shooter Variables
     double targetVelocity = 0.0;
     double velocityBuffer = 25.0;
-    double open = 1;
-    double closed = 0.8;
+    double open = 0.8;
+    double closed = 0.5;
     @Override
     public void runOpMode() {
         // --- Hardware Mapping ---
@@ -124,8 +124,11 @@ public class TeleOp V7 extends LinearOpMode {
                 out2.setPower(0);
             }
             // --- 3. INTAKE & TRANSFER LOGIC ---
-           
           if (gamepad1.a && targetVelocity > 0) {
+             // targetVelocity = 1500;
+             if(targetVelocity == 1000) targetVelocity = 1500;
+             if(ty < 1.5 && ty > -1) targetVelocity = 1600;
+            
               boolean aligned = false;
               if(id == 20 || id == 24){
                     double tolerance = 1;
